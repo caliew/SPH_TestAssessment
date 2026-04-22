@@ -1,0 +1,25 @@
+{
+  "tasks": [
+    {
+      "id": "422a",
+      "title": "CHECK CODE TEST",
+      "completed": false
+    },
+    {
+      "id": "881f",
+      "title": "EEE",
+      "completed": false
+    },
+    {
+      "id": "4ce9",
+      "title": "AAA",
+      "completed": false
+    },
+    {
+      "id": "c431",
+      "title": "12321",
+      "completed": false
+    }
+  ],
+  "$schema": "./node_modules/json-server/schema.json"
+}

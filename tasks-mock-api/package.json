@@ -1,0 +1,12 @@
+{
+	"name": "interview-mock-api",
+	"version": "1.0.0",
+	"description": "Mock REST API for senior full-stack interview (Tasks)",
+	"private": true,
+	"scripts": {
+		"start": "json-server db.json --port 4001"
+	},
+	"devDependencies": {
+		"json-server": "1.0.0-beta.13"
+	}
+}
