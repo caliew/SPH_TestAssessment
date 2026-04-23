@@ -13,12 +13,12 @@
     {
       "id": "4ce9",
       "title": "AAA",
-      "completed": false
+      "completed": true
     },
     {
       "id": "c431",
       "title": "12321",
-      "completed": false
+      "completed": true
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"
