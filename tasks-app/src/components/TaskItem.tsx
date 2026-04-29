@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { Task } from "../types/Task";
 
 interface Props {
@@ -16,14 +17,18 @@ export const TaskItem: React.FC<Props> = ({ task, onToggle, onDelete }) => {
         {task.completed && <span style={{ color: 'white', fontSize: '12px' }}>✓</span>}
       </div>
       
-      <span style={{ 
-        textDecoration: task.completed ? 'line-through' : 'none',
-        color: task.completed ? '#94a3b8' : 'white',
-        fontSize: '1rem',
-        fontWeight: 500
-      }}>
+      <Link 
+        to={`/task/${task.id}`}
+        style={{ 
+          textDecoration: task.completed ? 'line-through' : 'none',
+          color: task.completed ? '#94a3b8' : 'white',
+          fontSize: '1rem',
+          fontWeight: 500,
+          flex: 1
+        }}
+      >
         {task.title}
-      </span>
+      </Link>
       
       <button 
         className="delete-btn"
