@@ -23,9 +23,9 @@ The app should integrate with the backend api and have the features including:
 ○ Keep a simple, reasonable file structure (e.g. components/, api/, hooks/, pages/).
 ○ Prefer clear naming and readable code over cleverness.
 
-# Project Construction Guide: tasks-app (Standard Template)
+# Project Construction Guide: tasks-app (Premium Template)
 
-This guide outlines the steps to build a modern, scalable React application using **Custom Hooks** and **React Router**.
+This guide outlines the steps to build a modern, scalable React application using **Custom Hooks**, **Generic API Utilities**, and **React Router**.
 
 ## 1. Project Initialization
 
@@ -34,110 +34,111 @@ Create a new React project with TypeScript using Vite.
 ```bash
 npm create vite@latest tasks-app -- --template react-ts
 cd tasks-app
-npm install react-router-dom axios # axios is optional but recommended
+npm install react-router-dom
 npm install
 ```
 
-## 2. Folder Structure
+## 2. Advanced Folder Structure
 
 Organize your `src` folder to keep concerns separated:
-- `api/` - Pure fetch/axios functions.
-- `components/` - Reusable UI elements.
-- `hooks/` - Business logic and state management.
+- `api/` - Centralized `apiClient` and domain-specific endpoints.
+- `components/` - Reusable UI elements, Context providers, and Layouts.
+- `hooks/` - Generic hooks (`useApi`, `useForm`) and business logic (`useTasks`).
 - `pages/` - Full screen views.
 - `types/` - TypeScript interfaces.
 
-## 3. Custom Hook Pattern (`src/hooks/useTasks.ts`)
+## 3. The Power of Generic Hooks
 
-Encapsulate all task-related logic here. This keeps your components "dumb" and focused only on UI.
+To save time during assessments, use generic hooks to handle repetitive logic.
+
+### Generic API Hook (`src/hooks/useApi.ts`)
+Handles `loading`, `error`, and `data` states for any async function.
 
 ```typescript
-import { useState, useEffect } from "react";
-import type { Task } from "../types/Task";
-import * as api from "../api/tasks";
-
-export const useTasks = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchTasks = async () => {
+export const useApi = <T, Args extends any[]>(
+  apiFunc: (...args: Args) => Promise<T>,
+  options: { onSuccess?: (data: T, args: Args) => void; onError?: (error: string) => void } = {}
+) => {
+  const [state, setState] = useState({ data: null, loading: false, error: null });
+  const execute = useCallback(async (...args: Args) => {
+    setState(s => ({ ...s, loading: true, error: null }));
     try {
-      const data = await api.getTasks();
-      setTasks(data);
+      const data = await apiFunc(...args);
+      setState({ data, loading: false, error: null });
+      options.onSuccess?.(data, args);
+      return data;
     } catch (err) {
-      setError("Failed to load tasks");
-    } finally {
-      setLoading(false);
+      const msg = err.message || "Error occurred";
+      setState({ data: null, loading: false, error: msg });
+      options.onError?.(msg);
+      throw err;
     }
-  };
-
-  useEffect(() => { fetchTasks(); }, []);
-
-  const handleAddTask = async (title: string) => {
-    const newTask = await api.createTask(title);
-    setTasks(prev => [...prev, newTask]);
-  };
-
-  const handleToggle = async (id: string, completed: boolean) => {
-    await api.updateTask(id, { completed });
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed } : t));
-  };
-
-  const handleDelete = async (id: string) => {
-    await api.deleteTask(id);
-    setTasks(prev => prev.filter(t => t.id !== id));
-  };
-
-  return { tasks, loading, error, handleAddTask, handleToggle, handleDelete };
+  }, [apiFunc, options]);
+  return { ...state, execute };
 };
 ```
 
-## 4. Routing Setup (`src/App.tsx`)
+### Generic Form Hook (`src/hooks/useForm.ts`)
+Manages input states and submission logic.
 
-Use `Routes` and `Route` to manage navigation.
+```typescript
+export const useForm = ({ initialValues, onSubmit }) => {
+  const [values, setValues] = useState(initialValues);
+  const handleChange = (e) => setValues(v => ({ ...v, [e.target.name]: e.target.value }));
+  const handleSubmit = (e) => { e.preventDefault(); onSubmit(values); };
+  return { values, handleChange, handleSubmit };
+};
+```
+
+## 4. Refined Domain Logic (`src/hooks/useTasks.ts`)
+
+By using `useApi`, your domain hooks become much shorter and more readable.
+
+```typescript
+export const useTasks = () => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const { showNotification } = useNotification();
+
+  const { loading, execute: fetchTasks } = useApi(api.getTasks, {
+    onSuccess: (data) => setTasks(data)
+  });
+
+  const { execute: handleAddTask } = useApi(api.createTask, {
+    onSuccess: (newTask) => {
+      setTasks(prev => [...prev, newTask]);
+      showNotification("Task added!", "success");
+    }
+  });
+
+  return { tasks, loading, handleAddTask, refresh: fetchTasks };
+};
+```
+
+## 5. Global Setup (`src/App.tsx`)
+
+Wrap your app in providers and a common layout.
 
 ```tsx
-import { Routes, Route } from "react-router-dom";
-import { Home } from "./pages/Home";
-import { TaskDetail } from "./pages/TaskDetail";
-
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/task/:id" element={<TaskDetail />} />
-    </Routes>
+    <ErrorBoundary>
+      <NotificationProvider>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/task/:id" element={<TaskDetail />} />
+          </Routes>
+        </Layout>
+      </NotificationProvider>
+    </ErrorBoundary>
   );
 }
 ```
 
-Don't forget to wrap `<App />` in `<BrowserRouter>` in your `main.tsx`.
+## 6. Pro Tips for Assessment Success
 
-## 5. Clean Components (`src/components/TaskItem.tsx`)
-
-Use `Link` for navigation and avoid complex logic inside the component.
-
-```tsx
-import { Link } from "react-router-dom";
-import type { Task } from "../types/Task";
-
-export const TaskItem = ({ task, onToggle, onDelete }) => (
-  <div className="task-item">
-    <input 
-      type="checkbox" 
-      checked={task.completed} 
-      onChange={() => onToggle(task.id, !task.completed)} 
-    />
-    <Link to={`/task/${task.id}`} style={{ flex: 1 }}>{task.title}</Link>
-    <button onClick={() => onDelete(task.id)}>✕</button>
-  </div>
-);
-```
-
-## 6. Pro Tips for Live Coding
-
-1.  **Loading States**: Always show a spinner or "Loading..." text during fetches.
-2.  **Error Handling**: Use `try/catch` and show user-friendly error messages.
-3.  **Derived State**: Use `useMemo` for filters and search queries to avoid unnecessary re-renders.
-4.  **Controlled Inputs**: Always link `input` values to React state.
+1.  **Notification Feedback**: Use the `useNotification` hook to give immediate visual feedback on API actions.
+2.  **Centralized API**: Use an `apiClient` to handle base URLs and headers in one place.
+3.  **Error Boundaries**: Always wrap your app in an `ErrorBoundary` to handle unexpected crashes gracefully.
+4.  **Loading states**: Disable buttons (`isSubmitting`) during API calls to prevent double submissions.
+5.  **Clean JSX**: Keep components small and logic-free by pushing everything into custom hooks.

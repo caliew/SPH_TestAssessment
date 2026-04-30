@@ -1,25 +1,28 @@
 import { useState, useMemo } from "react";
 import { useTasks } from "../hooks/useTasks";
 import { TaskItem } from "../components/TaskItem";
+import { useForm } from "../hooks/useForm";
 
 type FilterStatus = "all" | "active" | "completed";
 
 export const Home = () => {
   const { tasks, loading, error, handleAddTask, handleToggle, handleDelete } = useTasks();
-  const [newTaskTitle, setNewTaskTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterStatus>("all");
 
-  const onAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTaskTitle.trim()) return;
-    try {
-      await handleAddTask(newTaskTitle);
-      setNewTaskTitle("");
-    } catch (err) {
-      alert(err);
+  const { values, handleChange, handleSubmit, resetForm, isSubmitting } = useForm({
+    initialValues: { title: "" },
+    onSubmit: async (values) => {
+      if (!values.title.trim()) return;
+      await handleAddTask(values.title);
+      resetForm();
+    },
+    validate: (values) => {
+      const errors: Record<string, string> = {};
+      if (!values.title.trim()) errors.title = "Title is required";
+      return errors;
     }
-  };
+  });
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
@@ -33,22 +36,27 @@ export const Home = () => {
     });
   }, [tasks, searchQuery, filter]);
 
-  if (loading) return <div className="glass-card"><h2>Loading...</h2></div>;
-  if (error) return <div className="glass-card"><h2 style={{ color: '#ef4444' }}>{error}</h2></div>;
+  if (loading && tasks.length === 0) return <div className="glass-card"><h2>Loading...</h2></div>;
+  // Note: we don't return early for error here because the Notification system handles it, 
+  // but we could still show a UI state if we wanted.
 
   return (
     <div className="glass-card">
       <h1>Task List</h1>
 
-      <form onSubmit={onAddSubmit} style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem' }}>
+      <form onSubmit={handleSubmit} style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem' }}>
         <input
+          name="title"
           type="text"
-          value={newTaskTitle}
-          onChange={(e) => setNewTaskTitle(e.target.value)}
+          value={values.title}
+          onChange={handleChange}
           placeholder="Add a new task..."
           style={{ flex: 2 }}
+          disabled={isSubmitting}
         />
-        <button type="submit" className="primary">Add</button>
+        <button type="submit" className="primary" disabled={isSubmitting}>
+          {isSubmitting ? "Adding..." : "Add"}
+        </button>
       </form>
 
       <div style={{ marginBottom: '1rem' }}>
@@ -74,6 +82,9 @@ export const Home = () => {
       </div>
 
       <div style={{ minHeight: '200px' }}>
+        {filteredTasks.length === 0 && !loading && (
+          <p style={{ textAlign: 'center', color: '#64748b', marginTop: '2rem' }}>No tasks found.</p>
+        )}
         {filteredTasks.map(task => (
           <TaskItem 
             key={task.id} 

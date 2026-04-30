@@ -1,28 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import type { Task } from "../types/Task";
 import * as api from "../api/tasks";
+import { useApi } from "../hooks/useApi";
 
 export const TaskDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [task, setTask] = useState<Task | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  const { data: tasks, loading, execute: fetchTasks } = useApi(api.getTasks);
 
   useEffect(() => {
-    if (id) {
-      api.getTasks()
-        .then(tasks => {
-          const found = tasks.find(t => t.id === id);
-          if (found) setTask(found);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
-    }
-  }, [id]);
+    fetchTasks();
+  }, [fetchTasks]);
+
+  const task = tasks?.find(t => t.id === id);
 
   if (loading) return <div className="glass-card"><h2>Loading details...</h2></div>;
-  if (!task) return <div className="glass-card"><h2>Task not found</h2><Link to="/">Back to list</Link></div>;
+  if (!task) return (
+    <div className="glass-card">
+      <h2>Task not found</h2>
+      <Link to="/" style={{ color: '#38bdf8' }}>Back to list</Link>
+    </div>
+  );
 
   return (
     <div className="glass-card">

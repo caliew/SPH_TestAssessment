@@ -1,64 +1,52 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Task } from "../types/Task";
 import * as api from "../api/tasks";
+import { useApi } from "./useApi";
+import { useNotification } from "../components/NotificationContext";
 
 export const useTasks = () => {
+  const { showNotification } = useNotification();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  const { loading, error, execute: fetchTasks } = useApi(api.getTasks, {
+    onSuccess: (data) => setTasks(data),
+    onError: (err) => showNotification(err, "error")
+  });
 
-  const fetchTasks = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getTasks();
-      setTasks(data);
-      setError(null);
-    } catch (err) {
-      setError("Failed to load tasks");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { execute: addTaskApi } = useApi(api.createTask, {
+    onSuccess: (newTask) => {
+      setTasks(prev => [...prev, newTask]);
+      showNotification("Task added successfully", "success");
+    },
+    onError: (err) => showNotification(err, "error")
+  });
+
+  const { execute: updateTaskApi } = useApi(api.updateTask, {
+    onSuccess: (updatedTask) => {
+      setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+    },
+    onError: (err) => showNotification(err, "error")
+  });
+
+  const { execute: deleteTaskApi } = useApi(api.deleteTask, {
+    onSuccess: (_, [id]) => { // Second arg is the params passed to execute
+      setTasks(prev => prev.filter(t => t.id !== id));
+      showNotification("Task deleted", "info");
+    },
+    onError: (err) => showNotification(err, "error")
+  });
 
   useEffect(() => {
     fetchTasks();
   }, []);
 
-  const handleAddTask = async (title: string) => {
-    try {
-      const newTask = await api.createTask(title);
-      setTasks(prev => [...prev, newTask]);
-      return newTask;
-    } catch (err) {
-      throw new Error("Error adding task");
-    }
-  };
-
-  const handleToggle = async (id: string, completed: boolean) => {
-    try {
-      await api.updateTask(id, { completed });
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, completed } : t));
-    } catch (err) {
-      throw new Error("Error updating task");
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await api.deleteTask(id);
-      setTasks(prev => prev.filter(t => t.id !== id));
-    } catch (err) {
-      throw new Error("Error deleting task");
-    }
-  };
-
   return {
     tasks,
     loading,
     error,
-    handleAddTask,
-    handleToggle,
-    handleDelete,
+    handleAddTask: addTaskApi,
+    handleToggle: (id: string, completed: boolean) => updateTaskApi(id, { completed }),
+    handleDelete: deleteTaskApi,
     refresh: fetchTasks
   };
 };
